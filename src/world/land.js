@@ -14,6 +14,8 @@ import { mulberry32, noise1, lerp, smoothstep, TAU, DEG } from '../engine/util.j
 export const TREE = new THREE.Vector3(70, 0, -40);
 export const TEMPLE = new THREE.Vector3(-150, 0, -150);
 export const CANOPY = { y: 21, r: 24, h: 9 };                 // the banyan's crown: centre height, radius, half height
+/** the banyan's height above the lamp line: 20√3 m, so that it is seen at 30° from 60 m and at 60° from 20 m */
+export const TREE_H = 20 * Math.sqrt(3), LAMP_Y = 1;
 
 /** distance from the lake's centre to its bank along a bearing (0 = north, the far side) */
 export const bankRadius = (az) => 337 + 92 * Math.cos(az) + 28 * noise1(az * 2.1 + 5.3) * (0.5 + 0.5 * Math.cos(az));
@@ -270,8 +272,8 @@ export class Land {
   banyan(b) {
     const rng = this.rng, bark = col('#372a1d'), bark2 = col('#2c2118');
     b.frame(TREE, 0);
-    b.lathe([0, 0, 0], [[36, -0.6], [31, 0.9], [22, 1.7], [0, 2.1]], 24, col('#414d2c'));
-    b.tube([0, 1.6, 0], [0.8, 11.5, 0.4], 3.7, 2.6, 9, bark);
+    b.lathe([0, 0, 0], [[19, -0.6], [16, 0.5], [10, 1.0], [0, 1.2]], 24, col('#414d2c'));
+    b.tube([0, 0.9, 0], [0.8, 11.5, 0.4], 3.7, 2.6, 9, bark);
     for (let i = 0; i < 7; i++) { const a = (i / 7) * TAU + rng(); b.tube([Math.cos(a) * 2.6, 3.2, Math.sin(a) * 2.6], [Math.cos(a) * 6.2, 1.5, Math.sin(a) * 6.2], 1.1, 0.5, 5, bark2); }
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * TAU + rng() * 0.5, r = 10 + rng() * 7, y = 15 + rng() * 5;
@@ -280,17 +282,21 @@ export class Land {
     const greens = [col('#1f3826'), col('#264228'), col('#1b3023'), col('#2d4a2a')];
     for (let i = 0; i < 22; i++) {
       const a = i * 2.39996, rad = 4 + 17.5 * Math.sqrt((i + 0.5) / 22);
-      const y = CANOPY.y - 2 + 7 * (1 - (rad / 22) ** 2) + (rng() - 0.5) * 2.4;
+      const y = Math.min(25.2, CANOPY.y - 2 + 7 * (1 - (rad / 22) ** 2) + (rng() - 0.5) * 2.4);
       const blob = { x: Math.cos(a) * rad, y, z: Math.sin(a) * rad, rx: 6.8 + rng() * 3, ry: 4.6 + rng() * 1.8, rz: 6.8 + rng() * 3 };
       b.blob([blob.x, blob.y, blob.z], blob.rx, blob.ry, blob.rz, greens[i % 4], 0.2, 1, 0.14);
       this.canopy.push({ x: TREE.x + blob.x, y: blob.y, z: TREE.z + blob.z, rx: blob.rx, ry: blob.ry, rz: blob.rz });
     }
     for (let i = 0; i < 18; i++) {                                              // the banyan's hanging roots
       const a = rng() * TAU, r = 7 + rng() * 11;
-      b.tube([Math.cos(a) * r, 15.5 + rng() * 2, Math.sin(a) * r], [Math.cos(a) * (r + 0.4), 1.4, Math.sin(a) * (r + 0.4)], 0.2, 0.26, 4, bark2);
+      b.tube([Math.cos(a) * r, 15.5 + rng() * 2, Math.sin(a) * r], [Math.cos(a) * (r + 0.4), r < 15 ? 0.9 : -0.3, Math.sin(a) * (r + 0.4)], 0.2, 0.26, 4, bark2);
     }
+    // the topmost bough: its tip is the height the last question asks for
+    const top = { x: 0.6, y: LAMP_Y + TREE_H - 4.4, z: 0.3, rx: 6.2, ry: 4.4, rz: 6.2 };
+    b.blob([top.x, top.y, top.z], top.rx, top.ry, top.rz, greens[1], 0.06, 1, 0.12);
+    this.canopy.push({ x: TREE.x + top.x, y: top.y, z: TREE.z + top.z, rx: top.rx, ry: top.ry, rz: top.rz });
     b.frame();
-    for (let i = 0; i < 12; i++) { const a = rng() * TAU; this.reedSpots.push({ x: TREE.x + Math.cos(a) * 33, z: TREE.z + Math.sin(a) * 33, r: 4.5, n: 30 }); }
+    for (let i = 0; i < 9; i++) { const a = rng() * TAU; this.reedSpots.push({ x: TREE.x + Math.cos(a) * 17.5, z: TREE.z + Math.sin(a) * 17.5, r: 2.6, n: 16 }); }
   }
 
   /** lily pads and a few lotus buds on the near water */

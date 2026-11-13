@@ -6,6 +6,7 @@ import * as THREE from '../../vendor/three.module.js';
 import { Sky, SKY } from './sky.js';
 import { Water } from './water.js';
 import { Land, TREE, CANOPY } from './land.js';
+import { Lines } from './lines.js';
 import { Flock } from './flock.js';
 import { Falcon } from './falcon.js';
 import { Lure } from './lure.js';
@@ -26,7 +27,7 @@ uniform float uK, uTime; uniform vec3 uColor;
 varying vec2 vUv;
 void main() {
   float x = 1.0 - abs(vUv.x);
-  float a = x * x * x * x * pow(1.0 - vUv.y, 2.2) * (0.85 + 0.15 * sin(uTime * 2.0 + vUv.y * 9.0));
+  float a = x * x * x * x * pow(max(1.0 - vUv.y, 0.0), 2.2) * (0.85 + 0.15 * sin(uTime * 2.0 + vUv.y * 9.0));   // (max: a pow of a negative at the top edge is NaN, and one NaN pixel blooms)
   gl_FragColor = vec4(uColor, a * uK);
 }`;
 
@@ -64,14 +65,40 @@ export class World {
     this.bu = { uBase: { value: new THREE.Vector3(TREE.x, CANOPY.y + 2, TREE.z) }, uW: { value: 8 }, uH: { value: 170 }, uK: { value: 0 }, uTime: SKY.uTime, uColor: { value: new THREE.Color(2.6, 1.9, 1.0) } };
     this.beacon = new THREE.Mesh(bg, new THREE.ShaderMaterial({ vertexShader: BEACON_VERT, fragmentShader: BEACON_FRAG, uniforms: this.bu, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     this.beacon.frustumCulled = false; this.beacon.renderOrder = 7;
+    this.gu = { uBase: { value: new THREE.Vector3() }, uW: { value: 3.2 }, uH: { value: 70 }, uK: { value: 0 }, uTime: SKY.uTime, uColor: { value: new THREE.Color(2.8, 2.0, 1.0) } };
+    this.goalBeam = new THREE.Mesh(bg, new THREE.ShaderMaterial({ vertexShader: BEACON_VERT, fragmentShader: BEACON_FRAG, uniforms: this.gu, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    this.goalBeam.frustumCulled = false; this.goalBeam.renderOrder = 7; this.goalK = 0;
+
+    // the drawing instruments of a sighting: lines in the air, the lamps the flock is sighted from, and the
+    // floating diyas that mark every ten metres of water
+    this.lines = new Lines(96);
+    this.posts = []; this.postGlow = new Glows(14, { pow: 2.4, minPx: 3.2, flicker: 0.18 });
+    this.diya = new Glows(40, { pow: 2.6, minPx: 3.6, flicker: 0.3, order: 11 }); this.diyas = [];
+    const pb = new THREE.CylinderGeometry(0.16, 0.24, 4.2, 6); pb.translate(0, 2.1, 0);
+    const cols = new Float32Array(pb.getAttribute('position').count * 3); for (let i = 0; i < cols.length; i += 3) { cols[i] = 0.05; cols[i + 1] = 0.035; cols[i + 2] = 0.03; }
+    pb.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); this.postGeo = pb.toNonIndexed();
 
     this.scene.add(this.sky.mesh, this.water.mesh, this.land.group, this.flock.mesh, this.falcon.mesh, this.falcon.line,
-      this.lamps.mesh, this.fire.mesh, this.dust.mesh, this.feather.mesh, this.beacon, this.lure.trail.mesh, this.lure.mesh);
+      this.lamps.mesh, this.fire.mesh, this.dust.mesh, this.feather.mesh, this.beacon, this.goalBeam, this.postGlow.mesh, this.diya.mesh, this.lines.mesh, this.lure.trail.mesh, this.lure.mesh);
     this.setTod(0);
   }
 
   setSize(w, h) { this.water.setSize(w, h); this.bufH = h; }
   setTod(t) { this.tod = clamp(t, 0, 1); this.sky.set(this.tod); }
+
+  /** stand a lamp in the water (x, z); it lights as its k goes to 1 */
+  addPost(x, z) {
+    if (this.posts.length >= 14) return this.posts[this.posts.length - 1];
+    const m = new THREE.Mesh(this.postGeo, this.land.material); m.position.set(x, -0.6, z); m.frustumCulled = false;
+    this.scene.add(m);
+    const p = { x, z, k: 0, mesh: m }; this.posts.push(p); return p;
+  }
+  /** floating diyas: [{ x, z, k }] */
+  setDiyas(list) { this.diyas = list; }
+  clearSighting() { this.lines.clear(); this.diyas = []; }
+  /** a thin beam over the lamp the flock is being led to */
+  setGoal(x, z) { this.gu.uBase.value.set(x, 3, z); }
+  resetEvening() { this.goalK = 0; for (const p of this.posts) this.scene.remove(p.mesh); this.posts.length = 0; this.clearSighting(); }
 
   /** a place for a bird to land: somewhere on the crown of the banyan */
   nextPerch() {
@@ -94,8 +121,8 @@ export class World {
     this.land.update(this.time);
     this.lure.update(ui);
     // a stray is rosy and catches the sky's light, so it reads against the flock's dark
-    this.stray.copy(SKY.uAmbient.value).multiplyScalar(1.7).add(_c.copy(SKY.uSunColor.value).multiplyScalar(0.5 * SKY.uSunLit.value));
-    this.stray.r *= 1.0; this.stray.g *= 0.62; this.stray.b *= 0.6;
+    this.stray.copy(SKY.uAmbient.value).multiplyScalar(1.5).add(_c.copy(SKY.uSunColor.value).multiplyScalar(0.45 * SKY.uSunLit.value));
+    this.stray.r *= 0.92; this.stray.g *= 0.46; this.stray.b *= 0.5;
     this.flock.update(dt, this.stray);
 
     // lamps come on one by one
@@ -137,6 +164,12 @@ export class World {
       if (f) { const k = (1 - f.t / f.life) * 1.3; this.feather.set(i, f.x, f.y, f.z, 1.5 * k, 1.1 * k, 1.0 * k, 0.32, i); } else this.feather.set(i, 0, -50, 0, 0, 0, 0, 0.01, 0);
     }
     this.feather.commit();
+    for (let i = 0; i < 14; i++) { const p = this.posts[i]; if (p) this.postGlow.set(i, p.x, 3.9, p.z, 10 * p.k, 5.8 * p.k, 2.0 * p.k, 1.7, i * 0.61); else this.postGlow.set(i, 0, -90, 0, 0, 0, 0, 0.01, 0); }
+    this.postGlow.commit();
+    for (let i = 0; i < 40; i++) { const d = this.diyas[i]; if (d) this.diya.set(i, d.x, d.y ?? 1.0, d.z, 9 * d.k, 4.6 * d.k, 1.3 * d.k, d.size ?? 0.95, i * 0.37); else this.diya.set(i, 0, -90, 0, 0, 0, 0, 0.01, 0); }
+    this.diya.commit();
+    this.lines.update();
+    this.gu.uK.value = this.goalK * 0.5; this.goalBeam.visible = this.goalK > 0.002;
     this.bu.uK.value = this.beaconK * 0.36;
     this.beacon.visible = this.beaconK > 0.002;
   }

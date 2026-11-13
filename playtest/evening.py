@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Play one whole evening with the autopilot and report it: python3 playtest/evening.py [--fast 6] [--seed 3] [--size 1280x800] [--query extra=1]
-Prints every change of phase, the falcon's results and the final count; saves a screenshot of each phase to
-playtest/screens/evening_<phase>.png. Exits 1 on a page error or if the evening never reaches the results."""
+"""Play one whole evening with the autopilot and report it:
+    python3 playtest/evening.py [--fast 4] [--seed 3] [--miss 0] [--size 1280x800] [--touch] [--query extra=1]
+The autopilot answers every question (wrong --miss times first, to climb the hint ladder). Prints each question as it
+is reached, the final count, and saves a screenshot of every question to playtest/screens/ev_<n>_<type>.png.
+Exits 1 on a page error or if the evening never reaches the results."""
 import sys, os, time, subprocess, socket, argparse, json
 from playwright.sync_api import sync_playwright
 
@@ -10,8 +12,9 @@ OUT = os.path.join(ROOT, 'playtest', 'screens')
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--fast', type=int, default=6); ap.add_argument('--seed', type=int, default=3); ap.add_argument('--size', default='1280x800')
-    ap.add_argument('--query', default=''); ap.add_argument('--touch', action='store_true'); ap.add_argument('--limit', type=int, default=240)
+    ap.add_argument('--fast', type=int, default=4); ap.add_argument('--seed', type=int, default=3); ap.add_argument('--miss', type=int, default=0)
+    ap.add_argument('--size', default='1280x800'); ap.add_argument('--query', default=''); ap.add_argument('--touch', action='store_true')
+    ap.add_argument('--limit', type=int, default=420); ap.add_argument('--tag', default='ev')
     a = ap.parse_args()
     w, h = map(int, a.size.split('x'))
     s = socket.socket(); s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]; s.close()
@@ -25,34 +28,28 @@ def main():
             pg = ctx.new_page()
             pg.on('console', lambda m: errors.append(f'[{m.type}] {m.text}') if m.type == 'error' else None)
             pg.on('pageerror', lambda e: errors.append(f'[pageerror] {e}'))
-            q = f'start=1&auto=1&fast={a.fast}&seed={a.seed}&mute=1' + ('&' + a.query if a.query else '')
+            q = f'start=1&auto=1&fast={a.fast}&seed={a.seed}&miss={a.miss}&mute=1' + ('&' + a.query if a.query else '')
             pg.goto(f'http://127.0.0.1:{port}/index.html?{q}')
             pg.wait_for_function('window.__mm && window.__mm.flow && window.__mm.flow.phase !== "boot"', timeout=60000)
-            seen, last, t0, peak, slowest = set(), None, time.time(), 0, 0
-            shots = {'play': 55, 'play2': 120}
+            last, t0, shot, slow = None, time.time(), set(), 0
             while time.time() - t0 < a.limit:
                 st = json.loads(pg.evaluate('JSON.stringify(window.__mm.dev.state())'))
-                peak = max(peak, st['flock']); slowest = max(slowest, st['ms'])
-                key = st['phase']
+                slow = max(slow, st['ms'] / a.fast)
+                key = (st['phase'], st['qi'])
                 if key != last:
-                    print(f"[{time.time()-t0:5.1f}s] {key:8} t={st['t']:6.1f} tod={st['tod']:.2f} flock={st['flock']} home={st['home']} wisps={st['wisps']} falcon={st['falcon']} stats={st['stats']}")
+                    print(f"[{time.time()-t0:5.1f}s] {st['phase']:8} q{st['qi']} {st['type'] or '-'}  flock={st['flock']} home={st['home']} total={st['total']} first={st['first']}/{st['asked']}")
                     last = key
-                    if key not in ('play',) and key not in seen:
-                        pg.wait_for_timeout(1500 if key != 'results' else 3200); pg.screenshot(path=os.path.join(OUT, f'evening_{key}.png')); seen.add(key)
-                for name, at in list(shots.items()):
-                    if st['phase'] == 'play' and st['t'] >= at:
-                        pg.screenshot(path=os.path.join(OUT, f'evening_{name}.png')); del shots[name]
-                        print(f"          {name}: t={st['t']} flock={st['flock']} wisps={st['wisps']} falcon={st['falcon']} ms={st['ms']} fps={st['fps']} stats={st['stats']}")
-                if st['phase'] == 'roost' and 'roost_mid' not in seen and st['home'] > 300:
-                    pg.screenshot(path=os.path.join(OUT, 'evening_roost_mid.png')); seen.add('roost_mid')
-                    print(f"          roost_mid: t={st['t']} flock={st['flock']} home={st['home']}")
+                if st['dock'] and st['qi'] not in shot:
+                    shot.add(st['qi'])
+                    pg.screenshot(path=os.path.join(OUT, f"{a.tag}_{st['qi']}_{st['type']}.png"))
                 if st['phase'] == 'results':
-                    print('RESULT', json.dumps(st['result']), 'peak flock', peak, 'slowest sim ms', slowest, 'audio', st['audio']); ok = True; break
-                pg.wait_for_timeout(700)
+                    pg.wait_for_timeout(3000); pg.screenshot(path=os.path.join(OUT, f'{a.tag}_results.png'))
+                    print('RESULT', json.dumps(st['result']), '| slowest step ms', round(slow, 2), '| audio', st['audio']); ok = True; break
+                pg.wait_for_timeout(250)
             b.close()
     finally:
         srv.terminate()
-    for e in errors[:20]: print('   ', e[:400])
+    for e in errors[:20]: print('   ', e[:500])
     sys.exit(0 if ok and not any('pageerror' in e for e in errors) else 1)
 
 if __name__ == '__main__':

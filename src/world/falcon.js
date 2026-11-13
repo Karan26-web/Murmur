@@ -42,7 +42,7 @@ export class Falcon {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
     this.mesh = new THREE.Mesh(g, landMaterial); this.mesh.frustumCulled = false; this.mesh.visible = false;
-    this.span = 6.4;
+    this.span = 9;
 
     const rg = new THREE.BufferGeometry();
     rg.setAttribute('position', new THREE.Float32BufferAttribute([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, -1, 0, 1, 1, 0, 0, 1, 0], 3));
@@ -69,6 +69,10 @@ export class Falcon {
     this.mesh.visible = true;
   }
   cancel() { this.state = 'away'; this.mesh.visible = false; this.line.visible = false; }
+  /** hang in the air at a point, looking along a direction (a problem to be read, not yet a threat) */
+  hold(at, look) { this.state = 'hold'; this.t = 0; this.home = at.clone(); this.pos.copy(at); this.dir.copy(look).normalize(); this.look = this.dir.clone(); this.mesh.visible = true; this.line.visible = false; }
+  /** fold and go down the straight line to a point; cb.through() as it passes */
+  dive(to) { this.state = 'dive'; this.t = 0; this.speed = 30; this.aim.copy(to); this.dir.subVectors(to, this.pos).normalize(); this.passed = false; this.tPass = 0; this.near = false; }
 
   update(dt, flock, cb) {
     const p = flock.player, th = flock.threat;
@@ -76,7 +80,18 @@ export class Falcon {
     if (this.state === 'away') return;
     this.t += dt;
     let tuck = 1;
-    if (this.state === 'circle') {
+    if (this.state === 'hold') {                      // wind-hovering: it barely moves
+      this.pos.set(this.home.x + Math.sin(this.t * 1.7) * 0.5, this.home.y + Math.sin(this.t * 2.3) * 0.35, this.home.z);
+      this.dir.copy(this.look);
+    } else if (this.state === 'dive') {
+      tuck = 0.42;
+      this.speed = Math.min(78, this.speed + 80 * dt);
+      this.pos.addScaledVector(this.dir, this.speed * dt);
+      th.on = true; th.x = this.pos.x; th.y = this.pos.y; th.z = this.pos.z;
+      if (!this.near && this.pos.distanceTo(this.aim) < 55) { this.near = true; cb.near && cb.near(); }
+      if (!this.passed && _w.subVectors(this.aim, this.pos).dot(this.dir) < 0) { this.passed = true; cb.through && cb.through(); }
+      if (this.passed) { this.tPass += dt; if (this.tPass > 0.3) { this.state = 'leave'; this.t = 0; } }
+    } else if (this.state === 'circle') {
       this.ang += dt * 1.0;
       this.ctr.lerp(_v.set(p.cx, p.cy + 46, p.cz), Math.min(1, dt * 1.6));
       _v.set(this.ctr.x + Math.cos(this.ang) * 50, this.ctr.y + Math.sin(this.t * 1.3) * 4, this.ctr.z + Math.sin(this.ang) * 50);
@@ -121,6 +136,8 @@ export class Falcon {
     }
     this.mesh.position.copy(this.pos);
     this.mesh.lookAt(_v.copy(this.pos).add(this.dir));
+    // seen from the bank a bird flying across the view is a line: roll it so its wings face the lens
+    if (this.state === 'hold' || this.state === 'dive') this.mesh.rotateZ(1.2);
     this.mesh.scale.set(this.span * tuck, this.span, this.span);
   }
 }

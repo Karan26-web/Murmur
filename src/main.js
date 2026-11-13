@@ -13,6 +13,7 @@ import { param, isTouch, clamp, nextFrame } from './engine/util.js';
 import { AudioEngine } from './engine/audio.js';
 import { World } from './world/world.js';
 import { HUD } from './ui/hud.js';
+import { Dock, Labels } from './ui/dock.js';
 import { Flow } from './game/flow.js';
 import { Dev } from './game/dev.js';
 
@@ -31,7 +32,7 @@ if (param('mute') === '1') audio.muted = true;
 /** The shared context every part of the game works through. */
 export const G = {
   THREE, renderer, camera, post, director, input, audio, clock,
-  world: null, hud: null, flow: null, dev: null, touch,
+  world: null, hud: null, dock: null, labels: null, flow: null, dev: null, touch,
   auto: param('auto') === '1', seed: +param('seed', (Math.random() * 1e9) | 0),
   fps: 60, ms: 0,
 };
@@ -84,6 +85,7 @@ function frame(now) {
   }
   G.ms += (performance.now() - t0 - G.ms) * 0.05;
   post.fx.dirBlur.copy(director.blurOut);
+  G.labels.update();
   G.world.prerender(renderer, camera);
   post.render(G.world.scene, camera, clock.realTime);
   adapt(raw);
@@ -101,7 +103,7 @@ async function boot() {
   G.world = new World({ birds: clamp(+param('birds', touch ? 3200 : 5000), 200, 12000), seed: 7 });
   resize();
   progress(0.6); await nextFrame();
-  G.hud = new HUD(G);
+  G.hud = new HUD(G); G.dock = new Dock(G); G.labels = new Labels(camera);
   input.init();
   G.flow = new Flow(G);
   G.dev = new Dev(G);

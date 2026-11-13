@@ -286,6 +286,29 @@ SFX.bell = (a) => {
     }
   }
 };
+/** a line being drawn in the air */
+SFX.draw = (a, o) => {
+  const ctx = a.ctx, t = a.now, osc = ctx.createOscillator(); osc.type = 'sine';
+  const f = o.f ?? 520; osc.frequency.setValueAtTime(f, t); osc.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.28);
+  const g = a.gain(0, a.out(a.sfxBus, 0.6)); a.env(g.gain, t, 0.04, 0.07, 0.3); osc.connect(g); osc.start(t); osc.stop(t + 0.4);
+};
+/** a diya lighting on the water, a line of working appearing */
+SFX.diya = (a, o) => a.pluck(deg(5 + (o.i ?? ((Math.random() * 5) | 0))) + 12, { vol: 0.11, bright: 0.65, wet: 0.6 });
+SFX.ask = (a) => { a.pluck(deg(2) + 12, { vol: 0.2, bright: 0.6 }); a.pluck(deg(4) + 12, { vol: 0.2, when: 0.13, bright: 0.6 }); };
+/** a miss: two notes falling, and a soft thud */
+SFX.wrong = (a) => {
+  a.pluck(deg(1), { vol: 0.3, bright: 0.4 }); a.pluck(deg(-1), { vol: 0.32, when: 0.16, bright: 0.4 });
+  const ctx = a.ctx, t = a.now, o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.25);
+  const g = a.gain(0, a.sfxBus); a.env(g.gain, t, 0.006, 0.35, 0.3); o.connect(g); o.start(t); o.stop(t + 0.4);
+};
+/** strays giving up and leaving: a flutter going away */
+SFX.depart = (a, o) => {
+  const ctx = a.ctx, t = a.now, s = a.noiseSrc(false), f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
+  f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(600, t + 0.9);
+  const am = ctx.createGain(); am.gain.value = 0.5; const l = ctx.createOscillator(); l.frequency.value = 17; const lg = ctx.createGain(); lg.gain.value = 0.5; l.connect(lg); lg.connect(am.gain);
+  const g = a.gain(0, a.out(a.sfxBus, 0.5, o.pan ?? 0)); a.env(g.gain, t, 0.05, 0.2, 0.9); s.connect(f); f.connect(am); am.connect(g); s.start(t); s.stop(t + 1.1); l.start(t); l.stop(t + 1.1);
+};
+SFX.tick = (a) => { const o = a.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 1320; const g = a.gain(0, a.sfxBus); a.env(g.gain, a.now, 0.003, 0.07, 0.05); o.connect(g); o.start(a.now); o.stop(a.now + 0.08); };
 SFX.perch = (a, o) => a.pluck(deg(10 + ((Math.random() * 6) | 0)) + 12, { vol: rnd(0.045, 0.085), bright: 0.5, wet: 0.7, pan: o.pan ?? rnd(-0.5, 0.5) });
 SFX.ui = (a) => a.pluck(deg(5) + 12, { vol: 0.2, bright: 0.6 });
 SFX.start = (a) => { [0, 2, 3, 5].forEach((d, i) => a.pluck(deg(d) + 12, { vol: 0.3, when: i * 0.16, bright: 0.6, long: true })); };

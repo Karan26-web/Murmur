@@ -1,14 +1,16 @@
 // ---------------------------------------------------------------------------
-// Input: one point of light to lead with, one action (the flare).
-//   touch   drag = lead; a quick tap, or a second finger, = flare
-//   mouse   move = lead (no button needed); click = flare
-//   keys    arrows / W A S D move the light; Space = flare; Esc / P = pause; M = sound
+// Input: one point of light to lead the flock with (answers are buttons in the
+// dock, with number keys 1-4 handled there).
+//   touch   drag = lead (a quick tap does not move the light)
+//   mouse   move = lead (no button needed)
+//   keys    arrows / W A S D move the light; Esc / P = pause; M = sound;
+//           Enter = begin / again
 // x, y are in normalised device coordinates (-1..1, y up). `leading` turns true
 // the first time the player really moves the light.
 // ---------------------------------------------------------------------------
 const TAP_MS = 230, TAP_PX = 12;
 const KEYS = { KeyW: [0, 1], ArrowUp: [0, 1], KeyS: [0, -1], ArrowDown: [0, -1], KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0] };
-const ACTIONS = { Space: 'flare', Enter: 'confirm', NumpadEnter: 'confirm', Escape: 'pause', KeyP: 'pause', KeyM: 'mute' };
+const ACTIONS = { Enter: 'confirm', NumpadEnter: 'confirm', Escape: 'pause', KeyP: 'pause', KeyM: 'mute' };
 
 export const input = {
   x: 0, y: 0.25, leading: false, moved: 0, mouse: false, enabled: true,
@@ -19,8 +21,8 @@ export const input = {
     const onUi = (e) => e.target && e.target.closest && e.target.closest('button, .veil');
     addEventListener('pointerdown', (e) => {
       if (onUi(e)) return;
-      if (e.pointerType === 'mouse') { if (e.button === 0) { ndc(e); this.leading = true; this.emit('flare'); } return; }
-      if (this.touch) { this.emit('flare'); return; }               // a second finger
+      if (e.pointerType === 'mouse') { if (e.button === 0) { ndc(e); this.leading = true; } return; }
+      if (this.touch) return;
       this.touch = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
     });
     addEventListener('pointermove', (e) => {
@@ -32,14 +34,12 @@ export const input = {
     const up = (e) => {
       const tc = this.touch; if (!tc || e.pointerId !== tc.id) return;
       this.touch = null;
-      if (!tc.moved && performance.now() - tc.t < TAP_MS && e.type === 'pointerup') this.emit('flare');
     };
     addEventListener('pointerup', up); addEventListener('pointercancel', up);
     addEventListener('keydown', (e) => {
       if (KEYS[e.code]) { this.keys.add(e.code); e.preventDefault(); return; }
       const a = ACTIONS[e.code]; if (!a || e.repeat) return;
-      if (e.code === 'Space') e.preventDefault();
-      if (document.activeElement && document.activeElement.tagName === 'BUTTON' && (a === 'flare' || a === 'confirm')) return;   // the button takes it
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON' && a === 'confirm') return;   // the button takes it
       this.emit(a);
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));

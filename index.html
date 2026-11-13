@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1a1430" />
-  <meta name="description" content="Murmur: lead a murmuration of starlings home before the light goes. Three rules, one sky." />
+  <meta name="description" content="Murmur: a Class 10 trigonometry game. Sight the strays, work out the height, and lead a murmuration of starlings home before the light goes." />
   <title>Murmur</title>
   <link rel="preload" href="assets/fonts/CormorantGaramond-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2333407f'/%3E%3Cstop offset='.7' stop-color='%23ff8748'/%3E%3Cstop offset='1' stop-color='%23ffd9a0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ccircle cx='44' cy='44' r='9' fill='%23fff3d2'/%3E%3Cpath d='M10 26q6-6 10 0q4-6 10 0M26 16q5-5 8 0q3-5 8 0M30 32q4-4 7 0q3-4 7 0' fill='none' stroke='%23140e10' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
@@ -17,12 +17,13 @@
     <!-- ================================================================ title -->
     <div id="title" class="layer">
       <div class="tt-wrap">
-        <div class="tt-kicker" data-i18n="title.kicker">three rules · one sky</div>
+        <div class="tt-kicker" data-i18n="title.kicker">heights &amp; distances</div>
         <h1 class="tt-name">MURMUR</h1>
         <div class="tt-line" data-i18n="title.tag">Lead them home before the light goes.</div>
         <div class="tt-load" id="ttLoad"><i id="ttFill"></i></div>
         <button id="btnPlay" class="tt-play" hidden><span data-i18n="title.begin">Tap to begin</span></button>
         <div class="tt-best" id="ttBest" hidden></div>
+        <div class="tt-grade" data-i18n="title.grade">Class 10 · Some Applications of Trigonometry</div>
       </div>
     </div>
 
@@ -38,16 +39,23 @@
           <span id="hudHomeN">0</span>
         </div>
       </div>
-      <div class="hud-dial" aria-hidden="true">
-        <svg viewBox="0 0 120 44">
-          <path d="M8 36A52 52 0 0 1 112 36" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.2" stroke-dasharray="1.5 4" stroke-linecap="round"/>
-          <path d="M2 36h116" stroke="currentColor" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round"/>
-          <circle id="dialSun" cx="20" cy="12" r="4.2" fill="currentColor"/>
-        </svg>
-      </div>
+      <div class="hud-pips" id="hudPips" aria-hidden="true"></div>
       <button class="hud-pause" id="btnPause" aria-label="Pause"><i></i><i></i></button>
       <i class="stray" hidden></i><i class="stray" hidden></i><i class="stray" hidden></i><i class="stray" hidden></i>
       <div class="mark" id="falconMark" hidden><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l10 20l-10-5l-10 5z" fill="currentColor"/></svg></div>
+    </div>
+
+    <!-- the numbers and words pinned to the triangle -->
+    <div id="labels"></div>
+    <div id="stamp" class="stamp" hidden></div>
+
+    <!-- =============================================================== the dock -->
+    <div id="dock" class="dock" hidden>
+      <div class="dk-q" id="dkQ"></div>
+      <div class="dk-timer" id="dkTimer" hidden><i></i></div>
+      <div class="dk-opts" id="dkOpts"></div>
+      <div class="dk-fb" id="dkFb" hidden></div>
+      <div class="dk-work" id="dkWork" hidden></div>
     </div>
 
     <div id="hint" class="hint" hidden><div class="hint-hand" aria-hidden="true"><i></i></div><span id="hintText"></span></div>
@@ -78,6 +86,7 @@
         <div class="res-line" data-i18n="result.home">came home</div>
         <div class="res-rank" id="resRank"></div>
         <div class="res-stars" id="resStars" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="res-first" id="resFirst"></div>
         <div class="res-best" id="resBest"></div>
         <div class="card-btns"><button class="btn primary" id="btnAgain" data-i18n="result.again">Again</button></div>
       </div>

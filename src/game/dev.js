@@ -4,10 +4,10 @@
 //   ?start=1      skip the title
 //   ?auto=1       the autopilot plays (with ?start=1: a whole evening unattended)
 //   ?fast=N       N simulation steps a frame
-//   ?at=120       jump the evening to this second once play starts
+//   ?q=N          start the evening at its Nth question (0-9), with a flock to match
+//   ?miss=N       the autopilot answers wrong N times before it answers right (to see the hint ladder)
 //   ?tod=0.62     hold the sky at a time of day (title only: for looking at light)
-//   ?flock=N      start play with N extra birds already in the flock
-//   ?birds=N  ?seed=N  ?dpr=N  ?mute=1  ?lan=hi  ?nofalcon=1  ?noflare=1
+//   ?birds=N  ?seed=N  ?dpr=N  ?mute=1  ?lan=hi
 // window.__mm.dev.state() returns what a test needs to know.
 // ---------------------------------------------------------------------------
 import { param } from '../engine/util.js';
@@ -16,24 +16,20 @@ export class Dev {
   constructor(G) {
     this.G = G; this.el = document.getElementById('dev'); this.on = param('dev') === '1'; this.n = 0;
     this.tod = param('tod') != null ? +param('tod') : null;
-    this.at = param('at') != null ? +param('at') : null;
-    this.extra = +param('flock', 0);
     if (this.on) this.el.hidden = false;
   }
   boot() { if (param('start') === '1') this.G.flow.begin(); }
   state() {
-    const G = this.G, f = G.world.flock, fl = G.flow, p = f.player;
-    return { phase: fl.phase, t: +fl.t.toFixed(2), tod: +G.world.tod.toFixed(3), flock: p.n - f.home, flying: p.fly, home: f.home, active: f.active, total: fl.total,
-      wisps: fl.wisps.length, falcon: G.world.falcon.state, fps: Math.round(G.fps), ms: +G.ms.toFixed(2), radius: +p.r.toFixed(1), stats: fl.stats, result: fl.result || null,
-      audio: G.audio.ctx ? G.audio.ctx.state : 'none' };
+    const G = this.G, f = G.world.flock, fl = G.flow, p = f.player, q = fl.plan[fl.qi];
+    return { phase: fl.phase, qi: fl.qi, type: q ? q.type : null, tod: +G.world.tod.toFixed(3), flock: p.n + (fl.scouts && fl.scouts.active ? fl.scouts.n : 0) - f.home, flying: p.fly, home: f.home,
+      active: f.active, total: fl.total, asked: fl.asked, first: fl.firstTry, falcon: G.world.falcon.state, fps: Math.round(G.fps), ms: +G.ms.toFixed(2), result: fl.result || null,
+      dock: !document.getElementById('dock').hidden && !G.dock.locked, audio: G.audio.ctx ? G.audio.ctx.state : 'none' };
   }
   frame() {
     const G = this.G, fl = G.flow;
     if (this.tod != null && fl.phase === 'title') G.world.setTod(this.tod);
-    if (this.extra && fl.phase === 'play') { const f = G.world.flock; f.spawn(f.player, this.extra, G.world.lure.pos, 45); this.extra = 0; }
-    if (this.at != null && fl.phase === 'play') { fl.t = this.at; fl.schedule = fl.schedule.filter((e) => e.t >= this.at); this.at = null; }
     if (!this.on || (this.n++ & 7)) return;
     const s = this.state();
-    this.el.textContent = `${s.fps} fps · sim ${s.ms} ms · ${s.active} birds\n${s.phase} t=${s.t} tod=${s.tod}\nflock ${s.flock} (r ${s.radius}) home ${s.home}/${s.total} wisps ${s.wisps} falcon ${s.falcon}`;
+    this.el.textContent = `${s.fps} fps · sim ${s.ms} ms · ${s.active} birds\n${s.phase} q${s.qi} ${s.type || ''} tod=${s.tod}\nflock ${s.flock} home ${s.home}/${s.total} first ${s.first}/${s.asked}`;
   }
 }

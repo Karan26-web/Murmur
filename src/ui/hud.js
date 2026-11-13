@@ -13,7 +13,7 @@ export class HUD {
     this.G = G;
     applyI18n();
     this.el = { title: $('title'), hud: $('hud'), hint: $('hint'), hintText: $('hintText'), caption: $('caption'), pause: $('pause'), result: $('result'),
-      count: $('hudCount'), flockRow: $('hudFlock'), home: $('hudHome'), homeN: $('hudHomeN'), sun: $('dialSun'), mark: $('falconMark'),
+      count: $('hudCount'), flockRow: $('hudFlock'), home: $('hudHome'), homeN: $('hudHomeN'), pips: $('hudPips'), stamp: $('stamp'), mark: $('falconMark'),
       play: $('btnPlay'), best: $('ttBest'), load: $('ttLoad'), fill: $('ttFill'), sound: $('btnSound') };
     this.shown = { count: -1, home: -1 };
     this.hintKey = null; this.hintTimer = 0;
@@ -39,12 +39,15 @@ export class HUD {
     this.el.home.hidden = !on;
     if (n !== this.shown.home) { this.shown.home = n; this.el.homeN.textContent = fmt(n); }
   }
-  /** the sun on its arc: k 0 = high, 1 = on the horizon line */
-  sun(k) {
-    k = clamp(k, 0, 1.12);
-    const a = (0.2 + 0.8 * k) * Math.PI / 2;               // along the right-hand quarter of the arc, sinking
-    this.el.sun.setAttribute('cx', (60 + Math.sin(a) * 52).toFixed(1)); this.el.sun.setAttribute('cy', (36 - Math.cos(a) * 52 + (k > 1 ? (k - 1) * 40 : 0)).toFixed(1));
-    this.el.sun.style.opacity = k > 1 ? String(clamp(1 - (k - 1) * 8, 0, 1)) : '1';
+  /** one pip per question of the evening */
+  pips(n) { this.el.pips.innerHTML = '<i></i>'.repeat(n); }
+  /** state: 'now' | 'gold' (right first time) | 'ok' (right after a miss) | 'lost' */
+  pip(i, state) { const p = this.el.pips.children[i]; if (p) p.className = state; }
+  /** the outcome, large and brief: cls 'good' | 'bad' */
+  stamp(key, cls = 'good') {
+    const e = this.el.stamp; e.textContent = t(key); e.className = `stamp ${cls}`; e.hidden = false;
+    e.style.animation = 'none'; void e.offsetWidth; e.style.animation = '';
+    clearTimeout(this.stampTimer); this.stampTimer = setTimeout(() => { e.hidden = true; }, 2300);
   }
   /** a red chevron at the edge of the screen pointing at the falcon (or on it) */
   mark(on, x = 0, y = 0, ang = 0) {
@@ -77,11 +80,12 @@ export class HUD {
   soundLabel() { this.el.sound.textContent = t(this.G.audio.muted ? 'sound.off' : 'sound.on'); }
   pause(on) { this.el.pause.hidden = !on; if (on) this.soundLabel(); }
   /** the count climbs to the number that came home */
-  results({ home, rank, best, isBest }) {
+  results({ home, rank, best, isBest, first, asked }) {
     const e = this.el.result; e.hidden = false;
     const n = $('resN'), stars = [...$('resStars').children];
     stars.forEach((s) => s.classList.remove('on'));
     $('resRank').textContent = t(`rank.${rank}`);
+    $('resFirst').textContent = t('result.first', { a: first, b: asked });
     $('resBest').textContent = isBest && home > 0 ? t('result.new') : best > 0 ? t('result.best', { n: fmt(best) }) : '';
     const t0 = performance.now(), dur = 1800;
     const step = (now) => {

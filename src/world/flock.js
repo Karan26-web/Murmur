@@ -90,6 +90,7 @@ export class Flock {
     this.groups = [];
     this.player = this.newGroup('player', 0);
     this.threat = { on: false, x: 0, y: 0, z: 0 };
+    this.gap = { on: false, x: 0, y: 0, z: 0, r: 21 };          // a hole the flock is asked to keep open
     this.flare = 0; this.flareAt = new THREE.Vector3();
     this.tree = { x: 0, z: 0 };
     this.home = 0; this.arrived = 0; this.active = 0; this.time = 0;
@@ -126,7 +127,8 @@ export class Flock {
     let id = this.groups.findIndex((g, i) => i > 0 && g && !g.active);
     if (id < 0) id = this.groups.length;
     if (id > 120) return null;
-    const g = { id, kind, tint, active: true, leaving: false, target: new THREE.Vector3(), n: 0, fly: 0, cx: 0, cy: 0, cz: 0, vx: 0, vy: 0, vz: 0, r: 10, rc: 12, goal: kind === 'player' ? 1 : 1.25, speed: 1, data: null };
+    // goal: how hard the place pulls; rcK: how tight the flock keeps (1 = loose lens); line: a segment to string out along instead of a point
+    const g = { id, kind, tint, active: true, leaving: false, target: new THREE.Vector3(), n: 0, fly: 0, cx: 0, cy: 0, cz: 0, vx: 0, vy: 0, vz: 0, r: 10, rc: 12, goal: kind === 'player' ? 1 : 1.25, rcK: 1, line: null, speed: 1, data: null };
     this.groups[id] = g;
     return g;
   }
@@ -166,6 +168,23 @@ export class Flock {
     g.n = g.fly = n; g.cx = x; g.cy = y; g.cz = z;
     return g;
   }
+  /** the `count` flying birds of a group nearest a point leave it as a new group */
+  takeNearest(from, x, y, z, count, kind, tint = from.tint) {
+    const list = [];
+    for (let i = 0; i < this.max; i++) {
+      if (this.grp[i] !== from.id || this.state[i] !== FLY) continue;
+      const j = i * 3, dx = this.pos[j] - x, dy = this.pos[j + 1] - y, dz = this.pos[j + 2] - z;
+      list.push([dx * dx + dy * dy + dz * dz, i]);
+    }
+    count = Math.min(count | 0, list.length);
+    if (count <= 0) return null;
+    const g = this.newGroup(kind, tint); if (!g) return null;
+    list.sort((a, b) => a[0] - b[0]);
+    let sx = 0, sy = 0, sz = 0;
+    for (let k = 0; k < count; k++) { const i = list[k][1], j = i * 3; this.grp[i] = g.id; sx += this.pos[j]; sy += this.pos[j + 1]; sz += this.pos[j + 2]; }
+    g.n = g.fly = count; g.cx = sx / count; g.cy = sy / count; g.cz = sz / count; g.target.set(g.cx, g.cy, g.cz);
+    return g;
+  }
   /** how many flying birds of a group are inside a ball */
   countNear(g, x, y, z, radius) {
     const r2 = radius * radius; let n = 0;
@@ -194,8 +213,8 @@ export class Flock {
   reset() {
     this.grp.fill(-1); this.state.fill(0); this.alpha.fill(0);
     this.free.length = 0; for (let i = this.max - 1; i >= 0; i--) this.free.push(i);
-    this.groups.length = 1; const p = this.player; p.n = p.fly = 0; p.active = true; p.leaving = false;
-    this.home = 0; this.arrived = 0; this.flare = 0; this.threat.on = false;
+    this.groups.length = 1; const p = this.player; p.n = p.fly = 0; p.active = true; p.leaving = false; p.line = null; p.rcK = 1; p.goal = 1; p.speed = 1;
+    this.home = 0; this.arrived = 0; this.flare = 0; this.threat.on = false; this.gap.on = false;
   }
 
   /* ------------------------------------------------------------------- step */
@@ -224,11 +243,11 @@ export class Flock {
       if (!g || !g.fly) continue;
       const k = 1 / g.fly;
       g.cx = g.sx * k; g.cy = g.sy * k; g.cz = g.sz * k; g.vx = g.svx * k; g.vy = g.svy * k; g.vz = g.svz * k;
-      g.rc = 4 + 3.1 * Math.cbrt(g.fly);         // the radius a flock of this size is comfortable inside
+      g.rc = (4 + 3.1 * Math.cbrt(g.fly)) * g.rcK;         // the radius a flock of this size is comfortable inside
     }
 
     // pass 2: steer and move
-    const th = this.threat, TR = T.threatR, TR2 = TR * TR;
+    const th = this.threat, TR = T.threatR, TR2 = TR * TR, gp = this.gap, GR2 = gp.r * gp.r;
     const flareK = this.flare > 0 ? T.flareK * Math.min(1, this.flare / 0.25) : 0, fa = this.flareAt;
     if (this.flare > 0) this.flare -= dt;
     const tree = this.tree, turn = Math.min(1, dt * 5), fadeIn = dt * 1.6, fadeOut = dt * 0.55;
@@ -294,17 +313,20 @@ export class Flock {
       // the fourth: the pull of a place. Birds far from it hurry; near it they overshoot and wheel.
       // (each bird steers for the place as seen from a point between itself and the flock's centre, so the flock
       // travels as one body instead of every bird diving at the same spot)
-      let tx = g.target.x - (x * 0.4 + g.cx * 0.6), ty = g.target.y - (y * 0.4 + g.cy * 0.6), tz = g.target.z - (z * 0.4 + g.cz * 0.6);
+      let tx, ty, tz;
+      const ln = g.line;
+      if (ln) { const u = phase[i]; tx = ln.ax + (ln.bx - ln.ax) * u - x; ty = ln.ay + (ln.by - ln.ay) * u - y; tz = ln.az + (ln.bz - ln.az) * u - z; }     // strung out: each bird has its own place along the line
+      else { tx = g.target.x - (x * 0.4 + g.cx * 0.6); ty = g.target.y - (y * 0.4 + g.cy * 0.6); tz = g.target.z - (z * 0.4 + g.cz * 0.6); }
       const d = Math.sqrt(tx * tx + ty * ty + tz * tz) + 1e-3;
-      const far = d > g.rc ? Math.min((d - g.rc) * 0.011, 0.9) : 0;
+      const far = ln ? Math.min(d * 0.02, 0.9) : d > g.rc ? Math.min((d - g.rc) * 0.011, 0.9) : 0;
       const sp = cruise[i] * (1 + far * 0.8) * g.speed, kg = T.goal * g.goal * (1 + far * 1.3);
       ax += (tx / d * sp - vx) * kg; ay += (ty / d * sp - vy) * kg; az += (tz / d * sp - vz) * kg;
       // a tether to the flock's own centre, so a stretched flock stays one body
       tx = g.cx - x; ty = g.cy - y; tz = g.cz - z;
       const dc = Math.sqrt(tx * tx + ty * ty + tz * tz);
       g.sr += dc;
-      if (dc > g.rc) { const f = (dc - g.rc) / dc * T.tether; ax += tx * f; ay += ty * f; az += tz * f; }
-      ay += ty * 0.4;                                // a flock is wider than it is tall: a lens, not a ball
+      if (dc > g.rc && !ln) { const f = (dc - g.rc) / dc * T.tether; ax += tx * f; ay += ty * f; az += tz * f; }
+      if (!ln) ay += ty * 0.4;                                // a flock is wider than it is tall: a lens, not a ball
       // restlessness: each bird's own, and slow gusts that push whole parts of the flock the same way (the billows)
       const ph = phase[i] * 40;
       ax += Math.sin(time * 0.83 + ph) * T.wander; ay += Math.sin(time * 1.07 + ph * 1.7) * T.wander * 0.5; az += Math.cos(time * 0.71 + ph * 2.3) * T.wander;
@@ -316,6 +338,10 @@ export class Flock {
       if (th.on) {                                   // the falcon: get out of its way
         const dx = x - th.x, dy = y - th.y, dz = z - th.z, d2 = dx * dx + dy * dy + dz * dz;
         if (d2 < TR2) { const dd = Math.sqrt(d2) + 1e-3, f = (1 - dd / TR) / dd * T.threatK; ax += dx * f; ay += dy * f * 0.6; az += dz * f; panic = true; }
+      }
+      if (gp.on) {                                   // the gap: keep this place empty
+        const dx = x - gp.x, dy = y - gp.y, dz = z - gp.z, d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < GR2) { const dd = Math.sqrt(d2) + 1e-3, f = (1 - dd / gp.r) / dd * 300; ax += dx * f; ay += dy * f * 0.3; az += dz * f * 0.3; }
       }
       if (flareK > 0 && gi === 0) {                  // the flare: burst out from the heart of the flock
         const dx = x - fa.x, dy = y - fa.y, dz = z - fa.z, dd = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.5, f = flareK / dd;
