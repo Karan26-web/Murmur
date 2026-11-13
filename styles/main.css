@@ -1,0 +1,116 @@
+/* ---------------------------------------------------------------------------
+   Murmur: the page is the sky. Type and controls are thin, ivory and few, so the
+   birds stay the loudest thing on screen. Touch first; hover only where a mouse
+   has shown itself.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Cormorant Garamond"; font-style: normal; font-weight: 300 700; font-display: swap;
+  src: url("../assets/fonts/CormorantGaramond-latin.woff2") format("woff2");
+}
+:root {
+  --ivory: #fff4e2; --ivory-2: rgba(255, 244, 226, 0.72); --ivory-3: rgba(255, 244, 226, 0.4);
+  --ink: #14101c; --ember: #ff8a4a; --rose: #f2a9a0;
+  --serif: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif", "Noto Serif Devanagari", "Kohinoor Devanagari", Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, "Noto Sans", "Noto Sans Devanagari", "Kohinoor Devanagari", sans-serif;
+  --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
+  --u: clamp(13px, 1.9vmin, 20px);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1430; color: var(--ivory); touch-action: none; overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+body { font-family: var(--sans); font-size: var(--u); }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+.layer { position: absolute; inset: 0; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+button:focus { outline: none; }
+button:focus-visible { outline: 2px solid var(--ivory-2); outline-offset: 4px; }
+
+/* ------------------------------------------------------------------ title */
+#title { display: grid; place-items: center; transition: opacity 0.9s ease; }
+#title.out { opacity: 0; }
+.tt-wrap { text-align: center; transform: translateY(-9vh); text-shadow: 0 2px 30px rgba(40, 20, 50, 0.55); padding: 0 6vw; }
+.tt-kicker { font-size: 0.82em; letter-spacing: 0.42em; text-transform: uppercase; color: var(--ivory-2); margin-right: -0.42em; animation: rise 1.4s 0.1s both; }
+.tt-name { font-family: var(--serif); font-weight: 400; font-size: clamp(52px, 13.5vmin, 150px); letter-spacing: 0.3em; margin: 0.12em -0.3em 0.1em 0; line-height: 1; animation: rise 1.6s 0.25s both; }
+.tt-line { font-family: var(--serif); font-style: italic; font-size: 1.55em; color: var(--ivory); opacity: 0.92; animation: rise 1.6s 0.5s both; }
+.tt-load { width: min(240px, 46vw); height: 1px; margin: 2.6em auto 0; background: var(--ivory-3); overflow: hidden; transition: opacity 0.5s; }
+.tt-load i { display: block; height: 100%; width: 100%; background: var(--ivory); transform: scaleX(0); transform-origin: left; transition: transform 0.35s ease; }
+.tt-load.done { opacity: 0; }
+.tt-play { margin-top: 1.7em; font-size: 0.86em; letter-spacing: 0.34em; text-transform: uppercase; padding: 1.15em 2.3em 1.15em 2.64em; border: 1px solid var(--ivory-3); border-radius: 99px;
+  background: rgba(20, 12, 34, 0.18); animation: rise 0.9s both, breathe 2.6s 1s ease-in-out infinite; }
+.tt-play:active { transform: scale(0.97); background: rgba(255, 244, 226, 0.14); }
+.tt-best { margin-top: 1.5em; font-family: var(--serif); font-style: italic; font-size: 1.15em; color: var(--ivory-2); animation: rise 1s 0.2s both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 244, 226, 0); } 50% { box-shadow: 0 0 0 9px rgba(255, 244, 226, 0.07); } }
+
+/* -------------------------------------------------------------------- HUD */
+#hud { transition: opacity 0.8s ease; }
+#hud.out { opacity: 0; }
+.hud-left { position: absolute; left: calc(1.5em + var(--safe-l)); top: calc(1.2em + var(--safe-t)); display: flex; flex-direction: column; gap: 0.35em; text-shadow: 0 1px 14px rgba(30, 14, 40, 0.6); }
+.hud-n { display: flex; align-items: center; gap: 0.5em; font-family: var(--serif); font-weight: 500; font-size: 2.3em; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.hud-n svg { width: 0.78em; height: auto; opacity: 0.9; filter: drop-shadow(0 1px 6px rgba(30, 14, 40, 0.5)); }
+.hud-n.pop span { animation: pop 0.45s ease; }
+.hud-home { color: #ffe1a8; font-size: 1.9em; }
+.hud-home svg { width: 0.62em; }
+@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.hud-dial { position: absolute; left: 50%; top: calc(1.5em + var(--safe-t)); width: 7.4em; transform: translateX(-50%); color: var(--ivory); opacity: 0.85; filter: drop-shadow(0 1px 8px rgba(30, 14, 40, 0.5)); }
+.hud-dial svg { width: 100%; display: block; overflow: visible; }
+.hud-pause { position: absolute; right: calc(1.1em + var(--safe-r)); top: calc(0.9em + var(--safe-t)); width: 3em; height: 3em; display: grid; grid-auto-flow: column; place-content: center; gap: 0.36em; border-radius: 50%; opacity: 0.8; }
+.hud-pause i { width: 0.22em; height: 1.05em; background: var(--ivory); border-radius: 2px; box-shadow: 0 1px 8px rgba(30, 14, 40, 0.6); }
+.hud-pause:active { transform: scale(0.92); }
+.mark { position: absolute; left: 0; top: 0; width: 1.9em; height: 1.9em; margin: -0.95em 0 0 -0.95em; color: #ff6a4a; filter: drop-shadow(0 0 8px rgba(255, 90, 60, 0.7)); will-change: transform; }
+.mark svg { width: 100%; height: 100%; animation: throb 0.5s ease-in-out infinite alternate; }
+.stray { position: absolute; left: 0; top: 0; width: 0.62em; height: 0.62em; margin: -0.31em 0 0 -0.31em; border-radius: 50%; background: var(--rose); box-shadow: 0 0 12px 3px rgba(242, 169, 160, 0.55); animation: throb 0.9s ease-in-out infinite alternate; will-change: transform; }
+@keyframes throb { from { opacity: 0.55; } to { opacity: 1; } }
+
+/* ---------------------------------------------------------- hints, captions */
+.hint { position: absolute; left: 50%; bottom: calc(15vh + var(--safe-b)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 0.9em;
+  font-family: var(--serif); font-style: italic; font-size: 1.7em; text-align: center; white-space: nowrap; text-shadow: 0 1px 18px rgba(30, 14, 40, 0.75); animation: rise 0.7s both; }
+.hint.out { opacity: 0; transition: opacity 0.6s; }
+.hint-hand { position: relative; width: 5.2em; height: 1.6em; }
+.hint-hand i { position: absolute; left: 0; top: 50%; width: 1.05em; height: 1.05em; margin-top: -0.52em; border-radius: 50%; border: 1.5px solid var(--ivory); background: rgba(255, 244, 226, 0.16); animation: sweep 2.4s ease-in-out infinite; }
+.hint.tap .hint-hand i { left: 50%; margin-left: -0.52em; animation: tap 0.9s ease-in-out infinite; }
+@keyframes sweep { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4.1em) translateY(-0.5em); } }
+@keyframes tap { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(0.6); opacity: 0.4; } }
+.caption { position: absolute; left: 50%; top: 24vh; transform: translateX(-50%); font-family: var(--serif); font-style: italic; font-size: clamp(22px, 5.2vmin, 54px); letter-spacing: 0.02em;
+  white-space: nowrap; text-shadow: 0 2px 26px rgba(30, 14, 40, 0.8); animation: caption 4.6s ease both; }
+@keyframes caption { 0% { opacity: 0; transform: translateX(-50%) translateY(10px); } 14%, 78% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+
+/* ------------------------------------------------------- pause and results */
+.veil { display: grid; place-items: center; background: rgba(14, 9, 26, 0.34); animation: veil 0.5s both; pointer-events: auto; }
+#result { background: linear-gradient(rgba(10, 8, 30, 0.5), rgba(10, 8, 30, 0.12) 62%, rgba(10, 8, 30, 0)); place-items: start center; padding-top: 7vh; }
+@keyframes veil { from { opacity: 0; } to { opacity: 1; } }
+.card { width: min(30em, 86vw); text-align: center; padding: 2.2em 1.8em 2em; text-shadow: 0 1px 20px rgba(20, 10, 34, 0.6); animation: rise 0.7s 0.1s both; }
+.card-k { font-size: 0.8em; letter-spacing: 0.42em; text-transform: uppercase; color: var(--ivory-2); margin-right: -0.42em; }
+.rules { list-style: none; counter-reset: r; padding: 0; margin: 1.1em 0 0.7em; font-family: var(--serif); font-size: 2.1em; line-height: 1.32; }
+.rules li { counter-increment: r; }
+.rules li::before { content: counter(r) ". "; font-style: italic; color: var(--ivory-3); }
+.rules-note { font-family: var(--serif); font-style: italic; font-size: 1.22em; line-height: 1.4; color: var(--ivory-2); margin: 0 auto 1.7em; max-width: 24em; }
+.card-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8em; }
+.btn { font-size: 0.8em; letter-spacing: 0.26em; text-transform: uppercase; padding: 1.1em 1.7em 1.1em 1.96em; border: 1px solid var(--ivory-3); border-radius: 99px; background: rgba(20, 12, 34, 0.22); min-width: 9.5em; }
+.btn.primary { background: var(--ivory); color: var(--ink); border-color: var(--ivory); text-shadow: none; }
+.btn:active { transform: scale(0.96); }
+.res-n { font-family: var(--serif); font-weight: 400; font-size: clamp(64px, 17vmin, 170px); line-height: 0.95; font-variant-numeric: lining-nums tabular-nums; }
+.res-line { font-family: var(--serif); font-style: italic; font-size: 1.9em; margin-top: 0.1em; }
+.res-rank { margin-top: 1.5em; font-size: 0.82em; letter-spacing: 0.4em; text-transform: uppercase; color: var(--ivory-2); margin-right: -0.4em; }
+.res-stars { display: flex; justify-content: center; gap: 0.9em; margin: 0.9em 0 0.2em; }
+.res-stars i { width: 0.62em; height: 0.62em; border-radius: 50%; border: 1px solid var(--ivory-2); transition: background 0.5s, box-shadow 0.5s, transform 0.5s; }
+.res-stars i.on { background: #ffe1a8; border-color: #ffe1a8; box-shadow: 0 0 14px 3px rgba(255, 210, 140, 0.55); transform: scale(1.15); }
+.res-best { font-family: var(--serif); font-style: italic; font-size: 1.15em; color: var(--ivory-2); margin: 0.9em 0 1.8em; min-height: 1.3em; }
+
+#dev { position: absolute; left: 8px; bottom: 8px; margin: 0; font: 11px/1.35 ui-monospace, Menlo, monospace; color: #ffe; background: rgba(0, 0, 0, 0.45); padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; max-width: 60vw; }
+
+/* Devanagari: no tracking (it pulls the joined letters apart), no slanted italics */
+html:lang(hi) .tt-kicker, html:lang(hi) .tt-play, html:lang(hi) .btn, html:lang(hi) .card-k, html:lang(hi) .res-rank { letter-spacing: 0.04em; margin-right: 0; text-transform: none; font-size: 1em; }
+html:lang(hi) .tt-play, html:lang(hi) .btn { padding-left: 1.9em; padding-right: 1.9em; }
+html:lang(hi) .tt-line, html:lang(hi) .tt-best, html:lang(hi) .hint, html:lang(hi) .caption, html:lang(hi) .res-line, html:lang(hi) .res-best, html:lang(hi) .rules-note, html:lang(hi) .rules li::before { font-style: normal; }
+html:lang(hi) .rules { font-size: 1.7em; line-height: 1.5; }
+
+@media (hover: hover) {
+  .tt-play:hover, .btn:hover { background: rgba(255, 244, 226, 0.14); }
+  .btn.primary:hover { background: #fff; }
+  .hud-pause:hover { opacity: 1; }
+}
+@media (max-height: 520px) { .tt-wrap { transform: translateY(-4vh); } .rules { font-size: 1.6em; } .card { padding-top: 1em; padding-bottom: 1em; } .rules-note { margin-bottom: 1em; } }
+@media (prefers-reduced-motion: reduce) { .tt-play, .mark svg, .hint-hand i { animation: none; } }

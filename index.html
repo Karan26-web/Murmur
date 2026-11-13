@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1430" />
+  <meta name="description" content="Murmur: lead a murmuration of starlings home before the light goes. Three rules, one sky." />
+  <title>Murmur</title>
+  <link rel="preload" href="assets/fonts/CormorantGaramond-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2333407f'/%3E%3Cstop offset='.7' stop-color='%23ff8748'/%3E%3Cstop offset='1' stop-color='%23ffd9a0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ccircle cx='44' cy='44' r='9' fill='%23fff3d2'/%3E%3Cpath d='M10 26q6-6 10 0q4-6 10 0M26 16q5-5 8 0q3-5 8 0M30 32q4-4 7 0q3-4 7 0' fill='none' stroke='%23140e10' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <canvas id="gl" aria-hidden="true"></canvas>
+
+  <div id="ui">
+    <!-- ================================================================ title -->
+    <div id="title" class="layer">
+      <div class="tt-wrap">
+        <div class="tt-kicker" data-i18n="title.kicker">three rules · one sky</div>
+        <h1 class="tt-name">MURMUR</h1>
+        <div class="tt-line" data-i18n="title.tag">Lead them home before the light goes.</div>
+        <div class="tt-load" id="ttLoad"><i id="ttFill"></i></div>
+        <button id="btnPlay" class="tt-play" hidden><span data-i18n="title.begin">Tap to begin</span></button>
+        <div class="tt-best" id="ttBest" hidden></div>
+      </div>
+    </div>
+
+    <!-- ================================================================== HUD -->
+    <div id="hud" class="layer" hidden>
+      <div class="hud-left">
+        <div class="hud-n" id="hudFlock">
+          <svg viewBox="0 0 32 20" aria-hidden="true"><path d="M2 8q7-9 14 2q7-11 14-2q-8-3-14 8q-6-11-14-8z" fill="currentColor"/></svg>
+          <span id="hudCount">0</span>
+        </div>
+        <div class="hud-n hud-home" id="hudHome" hidden>
+          <svg viewBox="0 0 32 28" aria-hidden="true"><path d="M16 1c7 0 13 5 13 11c0 5-4 8-9 8h-2v7h-4v-7h-2c-5 0-9-3-9-8c0-6 6-11 13-11z" fill="currentColor"/></svg>
+          <span id="hudHomeN">0</span>
+        </div>
+      </div>
+      <div class="hud-dial" aria-hidden="true">
+        <svg viewBox="0 0 120 44">
+          <path d="M8 36A52 52 0 0 1 112 36" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.2" stroke-dasharray="1.5 4" stroke-linecap="round"/>
+          <path d="M2 36h116" stroke="currentColor" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round"/>
+          <circle id="dialSun" cx="20" cy="12" r="4.2" fill="currentColor"/>
+        </svg>
+      </div>
+      <button class="hud-pause" id="btnPause" aria-label="Pause"><i></i><i></i></button>
+      <i class="stray" hidden></i><i class="stray" hidden></i><i class="stray" hidden></i><i class="stray" hidden></i>
+      <div class="mark" id="falconMark" hidden><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3l10 20l-10-5l-10 5z" fill="currentColor"/></svg></div>
+    </div>
+
+    <div id="hint" class="hint" hidden><div class="hint-hand" aria-hidden="true"><i></i></div><span id="hintText"></span></div>
+    <div id="caption" class="caption" hidden></div>
+
+    <!-- ================================================================ pause -->
+    <div id="pause" class="layer veil" hidden>
+      <div class="card">
+        <div class="card-k" data-i18n="pause.title">Paused</div>
+        <ol class="rules">
+          <li data-i18n="rules.1">Keep apart.</li>
+          <li data-i18n="rules.2">Fly the same way.</li>
+          <li data-i18n="rules.3">Stay close.</li>
+        </ol>
+        <p class="rules-note" data-i18n="rules.note">Every bird follows these three rules and nothing else. You are the fourth: the way home.</p>
+        <div class="card-btns">
+          <button class="btn primary" id="btnResume" data-i18n="pause.resume">Resume</button>
+          <button class="btn" id="btnRestart" data-i18n="pause.restart">Start again</button>
+          <button class="btn" id="btnSound"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============================================================== result -->
+    <div id="result" class="layer veil" hidden>
+      <div class="card">
+        <div class="res-n" id="resN">0</div>
+        <div class="res-line" data-i18n="result.home">came home</div>
+        <div class="res-rank" id="resRank"></div>
+        <div class="res-stars" id="resStars" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="res-best" id="resBest"></div>
+        <div class="card-btns"><button class="btn primary" id="btnAgain" data-i18n="result.again">Again</button></div>
+      </div>
+    </div>
+
+    <pre id="dev" hidden></pre>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
